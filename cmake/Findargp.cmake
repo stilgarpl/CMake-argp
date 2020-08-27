@@ -17,70 +17,40 @@
 #
 # Copyright (c)
 #   2016-2017 Alexander Haase <ahaase@alexhaase.de>
+#   2020 Krzysztof Tulidowicz <krzysztof.tulidowicz@gmail.com>
 #
 
-include(CheckFunctionExists)
 include(FindPackageHandleStandardArgs)
-include(FindPackageMessage)
+include(CheckSymbolExists)
 
+#check if argp wasn't found already
+if (NOT argp_FOUND)
 
-# Do the following checks for header, library and argp functions quietly. Only
-# print the result at the end of this file.
-set(CMAKE_REQUIRED_QUIET TRUE)
-
-
-# First check if argp is shipped together with libc without linking to any other
-# library or including any paths. In that case, no files for argp need to be
-# searched and argp may be used out-of-the-box.
-check_function_exists("argp_parse" ARGP_IN_LIBC)
-if (ARGP_IN_LIBC)
-	# Set the argp library- and include-paths to empty values, otherwise CMake
-	# might print warnings about unknown variables and fills them with
-	# 'xy-NOTFOUND'.
-	set(ARGP_FOUND TRUE)
-	set(ARGP_LIBRARIES "")
-	set(ARGP_INCLUDE_PATH "")
-
-	# Print a message, that argp has been successfully found and return from
-	# this module, as argp doesn't need to be searched as a separate library.
-	find_package_message(argp "Found argp: built-in" "built-in")
-	return()
-endif()
-
-
-# Argp is not part of the libc, so it needs to be searched as a separate library
-# with its own include directory.
-#
-# First search the argp header file. If it is not found, any further steps will
-# fail.
-find_path(ARGP_INCLUDE_PATH "argp.h")
-if (ARGP_INCLUDE_PATH)
-    # Try to find the argp library and check if it has the required argp_parse
-    # function.
-	set(CMAKE_REQUIRED_INCLUDES "${ARGP_INCLUDE_PATH}")
-    find_library(ARGP_LIBRARIES "argp")
-
-    # Check if argp_parse is available. Some implementations don't have this
-    # symbol defined, thus they're not compatible.
-    if (ARGP_LIBRARIES)
-        set(CMAKE_REQUIRED_LIBRARIES "${ARGP_LIBRARIES}")
-        check_function_exists("argp_parse" ARGP_EXTERNAL)
-        if (NOT ARGP_EXTERNAL)
-            message(FATAL_ERROR "Your system ships an argp library in "
-                    "${ARGP_LIBRARIES}, but it does not have a symbol "
-                    "named argp_parse.")
+    #found header and library
+    find_path(argp_INCLUDE_PATH "argp.h")
+    #here cmake is clever, because looking for "argp" will return libc if argp is included in it (GNU libc)
+    find_library(argp_LIBRARIES NAMES "argp")
+    if (argp_INCLUDE_PATH AND argp_LIBRARIES)
+        #check if found argp library has right symbol
+        set(CMAKE_REQUIRED_LIBRARIES ${argp_LIBRARIES})
+        check_symbol_exists("argp_parse" "argp.h" argp_parse_WORKS)
+        if (NOT argp_parse_WORKS)
+            message(FATAL_ERROR "Argp found at ${argp_LIBRARIES} but argp_parse symbol does not exist")
         endif ()
+
     endif ()
-endif ()
 
 
-# Restore the quiet settings. By default the last check should be printed if not
-# disabled in the find_package call.
-set(CMAKE_REQUIRED_QUIET ${argp_FIND_QUIETLY})
+    find_package_handle_standard_args(argp DEFAULT_MSG argp_LIBRARIES argp_INCLUDE_PATH)
 
+    #Modern Cmake - export argp::argp target
+    if (argp_FOUND AND NOT TARGET argp::argp)
+        add_library(argp::argp UNKNOWN IMPORTED)
+        set_target_properties(argp::argp PROPERTIES
+                IMPORTED_LOCATION "${argp_LIBRARIES}"
+                INTERFACE_INCLUDE_DIRECTORIES "${argp_INCLUDE_PATH}"
+                )
+    endif ()
+    mark_as_advanced(argp_LIBRARIES argp_INCLUDE_PATH)
 
-# Check for all required variables.
-find_package_handle_standard_args(argp
-	DEFAULT_MSG
-	ARGP_LIBRARIES ARGP_INCLUDE_PATH)
-mark_as_advanced(ARGP_LIBRARIES ARGP_INCLUDE_PATH)
+endif (NOT argp_FOUND)

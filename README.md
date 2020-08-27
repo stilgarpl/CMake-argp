@@ -43,6 +43,8 @@ You found a bug? Please fill out an issue and include any data to reproduce the 
 
 [Alexander Haase](https://github.com/alehaa)
 
+[Krzysztof Tulidowicz](https://github.com/stilgarpl)
+
 
 ## License
 
